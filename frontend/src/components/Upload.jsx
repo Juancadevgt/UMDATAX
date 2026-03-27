@@ -80,9 +80,11 @@ export default function Upload() {
 
           <br /><br />
 
-          <button onClick={() => setVisible(!visible)}>
-            {visible ? "Ocultar campos ▲" : "Seleccionar campos ▼"}
-          </button>
+        <div style={{ textAlign: "center", marginTop: 10 }}>
+  <button onClick={() => setVisible(!visible)}>
+    {visible ? "Ocultar campos ▲" : "Seleccionar campos ▼"}
+  </button>
+</div>
 
           {visible && (
             <div style={{
