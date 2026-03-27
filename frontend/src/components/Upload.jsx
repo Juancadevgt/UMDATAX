@@ -56,108 +56,98 @@ export default function Upload() {
       minHeight: "100vh",
       display: "flex",
       flexDirection: "column",
-      justifyContent: "space-between",
+      justifyContent: "flex-start",
       padding: 20
     }}>
 
-      {/* CONTENIDO */}
-      <div style={{ textAlign: "center" }}>
-        
-        <h2>UMDATAX 🚀</h2>
+      {/* CONTENIDO PRINCIPAL */}
+      <div>
+        <h2 style={{ textAlign: "center" }}>UMDATAX</h2>
 
-        {/* TIPO DE ARCHIVO */}
-        <div style={{ marginBottom: 15 }}>
-          <div style={{ color: "#aaa", marginBottom: 5 }}>
-            Tipo de Archivo
-          </div>
-
-          <select
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-          >
+        <div style={{ textAlign: "center" }}>
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
             <option value="ZIP">ZIP</option>
             <option value="XML">XML</option>
           </select>
-        </div>
 
-        {/* INPUT ARCHIVO */}
-        <input
-          type="file"
-          accept=".zip,.xml"
-          onChange={(e) => setFile(e.target.files[0])}
-        />
+          <br /><br />
 
-        <br /><br />
+          <input
+            type="file"
+            accept=".zip,.xml"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
 
-        {/* BOTÓN MOSTRAR CAMPOS */}
-        <button onClick={() => setVisible(!visible)}>
-          {visible ? "Ocultar campos ▲" : "Seleccionar campos ▼"}
-        </button>
+          <br /><br />
 
-        {/* CAMPOS */}
-        {visible && (
-          <div style={{
-            border: "1px solid #444",
-            padding: 10,
-            marginTop: 10,
-            maxHeight: 200,
-            overflow: "auto",
-            borderRadius: 8,
-            display: "inline-block",
-            textAlign: "left"
-          }}>
-            <div style={{ marginBottom: 10 }}>
-              <button onClick={seleccionarTodos}>
-                Seleccionar todos
-              </button>
+        <div style={{ textAlign: "center", marginTop: 10 }}>
+  <button onClick={() => setVisible(!visible)}>
+    {visible ? "Ocultar campos ▲" : "Seleccionar campos ▼"}
+  </button>
+</div>
 
-              <button
-                onClick={quitarTodos}
-                style={{ marginLeft: 10 }}
-              >
-                Quitar selección
-              </button>
+          {visible && (
+            <div style={{
+              border: "1px solid #444",
+              padding: 10,
+              marginTop: 10,
+              maxHeight: 200,
+              overflow: "auto",
+              borderRadius: 8,
+              display: "inline-block",
+              textAlign: "left"
+            }}>
+              <div style={{ marginBottom: 10 }}>
+                <button onClick={seleccionarTodos}>
+                  Seleccionar todos
+                </button>
+
+                <button
+                  onClick={quitarTodos}
+                  style={{ marginLeft: 10 }}
+                >
+                  Quitar selección
+                </button>
+              </div>
+
+              {CAMPOS.map((campo) => (
+                <label key={campo} style={{ display: "block" }}>
+                  <input
+                    type="checkbox"
+                    checked={campos.includes(campo)}
+                    onChange={() => toggleCampo(campo)}
+                    style={{
+                      accentColor: "white",
+                      cursor: "pointer",
+                      marginRight: 5
+                    }}
+                  />
+                  {campo}
+                </label>
+              ))}
             </div>
+          )}
 
-            {CAMPOS.map((campo) => (
-              <label key={campo} style={{ display: "block" }}>
-                <input
-                  type="checkbox"
-                  checked={campos.includes(campo)}
-                  onChange={() => toggleCampo(campo)}
-                  style={{
-                    accentColor: "white",
-                    cursor: "pointer",
-                    marginRight: 5
-                  }}
-                />
-                {campo}
-              </label>
-            ))}
-          </div>
-        )}
+          <br /><br />
 
-        <br /><br />
-
-        {/* BOTÓN PROCESAR */}
-        <button
-          onClick={handleSubmit}
-          style={{
-            background: "green",
-            color: "white",
-            padding: "8px 16px",
-            border: "none",
-            cursor: "pointer",
-            borderRadius: 4
-          }}
-        >
-          Procesar
-        </button>
+          <button
+            onClick={handleSubmit}
+            style={{
+              background: "green",
+              color: "white",
+              padding: "6px 12px",
+              border: "none",
+              cursor: "pointer"
+            }}
+          >
+            Procesar
+          </button>
+        </div>
       </div>
 
-      {/* FOOTER */}
+      {/* FOOTER PROFESIONAL */}
       <footer style={{
-        marginTop: 30,
+        marginTop: 40,
         paddingTop: 15,
         borderTop: "1px solid #333",
         textAlign: "center",
