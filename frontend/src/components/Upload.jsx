@@ -43,11 +43,11 @@ export default function Upload() {
       a.remove();
       window.URL.revokeObjectURL(url);
 
-      alert("✅ Archivo descargado correctamente");
+      alert("Archivo descargado correctamente");
 
     } catch (error) {
       console.error(error);
-      alert("❌ Error al procesar archivo");
+      alert("Error al procesar archivo");
     }
   };
 
@@ -62,7 +62,7 @@ export default function Upload() {
 
       {/* CONTENIDO PRINCIPAL */}
       <div>
-        <h2 style={{ textAlign: "center" }}>UMDATAX 🚀</h2>
+        <h2 style={{ textAlign: "center" }}>UMDATAX</h2>
 
         <div style={{ textAlign: "center" }}>
           <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
