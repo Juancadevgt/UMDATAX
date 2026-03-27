@@ -59,7 +59,7 @@ export default function Upload() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>UMDATAX 🚀</h2>
+      <h2>UMDATAX</h2>
 
       {/* Tipo */}
       <select value={tipo} onChange={(e) => setTipo(e.target.value)}>

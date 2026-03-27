@@ -8,7 +8,7 @@ export const procesarArchivo = async (file, tipo, campos) => {
   formData.append("campos", campos.join(","));
 
   const response = await axios.post(
-    "http://127.0.0.1:8000/procesar/",
+    "https://umdatax-backend.onrender.com/procesar/",
     formData,
     {
       responseType: "blob" // 🔥 CLAVE
