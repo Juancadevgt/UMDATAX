@@ -79,9 +79,9 @@ export default function Upload() {
     }}
   />
 
-  <h1 style={{ margin: 0 }}>
+  <h2 style={{ margin: 0 }}>
     UMDATAX
-  </h1>
+  </h2>
 </div>
          <h4 style={{ textAlign: "center" }}>Extractor de Datos</h4>
 
