@@ -14,7 +14,6 @@ export default function Upload() {
   const [campos, setCampos] = useState(CAMPOS);
   const [visible, setVisible] = useState(false);
 
-  // Toggle individual
   const toggleCampo = (campo) => {
     setCampos(prev =>
       prev.includes(campo)
@@ -23,20 +22,15 @@ export default function Upload() {
     );
   };
 
-  // Seleccionar todos
   const seleccionarTodos = () => setCampos(CAMPOS);
-
-  // Quitar todos
   const quitarTodos = () => setCampos([]);
 
-  // 🔥 PROCESAR + DESCARGAR
   const handleSubmit = async () => {
     if (!file) return alert("Selecciona archivo");
 
     try {
       const blob = await procesarArchivo(file, tipo, campos);
 
-      // Crear descarga automática
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
 
@@ -58,89 +52,122 @@ export default function Upload() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>UMDATAX</h2>
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      padding: 20
+    }}>
 
-      {/* Tipo */}
-      <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
-        <option value="ZIP">ZIP</option>
-        <option value="XML">XML</option>
-      </select>
+      {/* CONTENIDO PRINCIPAL */}
+      <div>
+        <h2 style={{ textAlign: "center" }}>UMDATAX 🚀</h2>
 
-      <br /><br />
+        <div style={{ textAlign: "center" }}>
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <option value="ZIP">ZIP</option>
+            <option value="XML">XML</option>
+          </select>
 
-      {/* Archivo */}
-      <input
-        type="file"
-        accept=".zip,.xml"
-        onChange={(e) => setFile(e.target.files[0])}
-      />
+          <br /><br />
 
-      <br /><br />
+          <input
+            type="file"
+            accept=".zip,.xml"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
 
-      {/* Dropdown botón */}
-      <button onClick={() => setVisible(!visible)}>
-        {visible ? "Ocultar campos ▲" : "Seleccionar campos ▼"}
-      </button>
+          <br /><br />
 
-      {/* Dropdown */}
-      {visible && (
-        <div style={{
-          border: "1px solid #444",
-          padding: 10,
-          marginTop: 10,
-          maxHeight: 200,
-          overflow: "auto",
-          borderRadius: 8
-        }}>
-          {/* Botones */}
-          <div style={{ marginBottom: 10 }}>
-            <button onClick={seleccionarTodos}>
-              Seleccionar todos
-            </button>
+          <button onClick={() => setVisible(!visible)}>
+            {visible ? "Ocultar campos ▲" : "Seleccionar campos ▼"}
+          </button>
 
-            <button
-              onClick={quitarTodos}
-              style={{ marginLeft: 10 }}
-            >
-              Quitar selección
-            </button>
-          </div>
+          {visible && (
+            <div style={{
+              border: "1px solid #444",
+              padding: 10,
+              marginTop: 10,
+              maxHeight: 200,
+              overflow: "auto",
+              borderRadius: 8,
+              display: "inline-block",
+              textAlign: "left"
+            }}>
+              <div style={{ marginBottom: 10 }}>
+                <button onClick={seleccionarTodos}>
+                  Seleccionar todos
+                </button>
 
-          {/* Checkboxes */}
-          {CAMPOS.map((campo) => (
-            <label key={campo} style={{ display: "block" }}>
-              <input
-                type="checkbox"
-                checked={campos.includes(campo)}
-                onChange={() => toggleCampo(campo)}
-                style={{
-                  accentColor: "white", // ✔ blanco
-                  cursor: "pointer",
-                  marginRight: 5
-                }}
-              />
-              {campo}
-            </label>
-          ))}
+                <button
+                  onClick={quitarTodos}
+                  style={{ marginLeft: 10 }}
+                >
+                  Quitar selección
+                </button>
+              </div>
+
+              {CAMPOS.map((campo) => (
+                <label key={campo} style={{ display: "block" }}>
+                  <input
+                    type="checkbox"
+                    checked={campos.includes(campo)}
+                    onChange={() => toggleCampo(campo)}
+                    style={{
+                      accentColor: "white",
+                      cursor: "pointer",
+                      marginRight: 5
+                    }}
+                  />
+                  {campo}
+                </label>
+              ))}
+            </div>
+          )}
+
+          <br /><br />
+
+          <button
+            onClick={handleSubmit}
+            style={{
+              background: "green",
+              color: "white",
+              padding: "6px 12px",
+              border: "none",
+              cursor: "pointer"
+            }}
+          >
+            Procesar
+          </button>
         </div>
-      )}
+      </div>
 
-      <br />
+      {/* FOOTER PROFESIONAL */}
+      <footer style={{
+        marginTop: 40,
+        paddingTop: 15,
+        borderTop: "1px solid #333",
+        textAlign: "center",
+        fontSize: "12px",
+        color: "#aaa"
+      }}>
+        <div style={{ marginBottom: 5 }}>
+          Versión 1.0.0
+        </div>
 
-      {/* Botón procesar */}
-      <button
-        onClick={handleSubmit}
-        style={{
-          background: "green",
-          color: "white",
-          padding: "6px 12px",
-          border: "none",
-          cursor: "pointer"
-        }}
-      >
-        Procesar
-      </button>
+        <div style={{ marginBottom: 5 }}>
+          Soporte: <span style={{ color: "#fff" }}>
+            juan.jimenez@umbralcorp.com
+          </span>
+        </div>
+
+        <div>
+          Para agregar nuevos campos o tipos de archivos,
+          contactar al correo de soporte.
+        </div>
+      </footer>
+
     </div>
   );
 }
