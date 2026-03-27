@@ -62,7 +62,8 @@ export default function Upload() {
 
       {/* CONTENIDO PRINCIPAL */}
       <div>
-        <h2 style={{ textAlign: "center" }}>UMDATAX</h2>
+        <h1 style={{ textAlign: "center" }}>UMDATAX</h1> <br /><br />
+         <h4 style={{ textAlign: "center" }}>extractor de datos</h4>
 
         <div style={{ textAlign: "center" }}>
           <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
