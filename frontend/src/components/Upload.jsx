@@ -70,8 +70,8 @@ export default function Upload() {
   marginBottom: 10
 }}>
   <img
-    src="/logo.png"
-    alt="logo"
+    src="/logo2.png"
+    alt="logo2"
     style={{
       width: 35,
       height: 35,
