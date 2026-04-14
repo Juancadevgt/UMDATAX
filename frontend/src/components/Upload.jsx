@@ -179,15 +179,9 @@ export default function Upload() {
           Versión 1.0.0
         </div>
 
-        <div style={{ marginBottom: 5 }}>
-          Soporte: <span style={{ color: "#fff" }}>
-            juan.jimenez@umbralcorp.com
-          </span>
-        </div>
-
         <div>
           Para agregar nuevos campos o tipos de archivos,
-          contactar al correo de soporte.
+          contactar al correo de soporte: juan.jimenez@umbralcorp.com
         </div>
       </footer>
 
