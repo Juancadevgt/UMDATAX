@@ -6,90 +6,111 @@ import re
 
 
 async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
-    # Extraer el token r= de la URL
     match = re.search(r'[?&]r=([^&]+)', url)
     if not match:
         return None
-    
+
     token = match.group(1)
-    
+
+    # URL real de la API de Power BI
+    api_url = "https://wabi-paas-1-scus-api.analysis.windows.net/public/reports/querydata?synchronous=true"
+
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json",
+        "Accept": "application/json, text/plain, */*",
+        "Content-Type": "application/json;charset=UTF-8",
         "Origin": "https://app.fabric.microsoft.com",
-        "Referer": url,
+        "Referer": "https://app.fabric.microsoft.com/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36",
+        "X-PowerBI-ResourceKey": token,
     }
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        # 1. Obtener metadata del reporte
-        meta_url = f"https://app.fabric.microsoft.com/view?r={token}"
-        resp = await client.get(meta_url, headers=headers)
-        
-        # 2. Buscar el embed URL real en el HTML
-        embed_match = re.search(r'"embedUrl":"([^"]+)"', resp.text)
-        config_match = re.search(r'"reportId":"([^"]+)"', resp.text)
-        
-        if not embed_match:
-            return None
-            
-        embed_url = embed_match.group(1).replace("\\u0026", "&")
-        
-        # 3. Obtener los datos del reporte via API interna
-        api_url = f"https://wabi-west-europe-b-primary-redirect.analysis.windows.net/public/reports/querydata"
-        
-        payload = {
-            "version": "1.0.0",
-            "queries": [{
-                "Query": {
-                    "Commands": [{
-                        "SemanticQueryDataShapeCommand": {
-                            "Query": {
-                                "Version": 2,
-                                "From": [{"Name": "t", "Entity": "Table", "Type": 0}],
-                                "Select": [{"Column": {"Expression": {"SourceRef": {"Source": "t"}}, "Property": "*"}, "Name": "t.*"}]
-                            }
-                        }
-                    }]
-                }
-            }]
-        }
+    # Payload para obtener TODOS los datos sin filtro
+    payload = {
+        "version": "1.0.0",
+        "queries": [{
+            "Query": {
+                "Commands": [{
+                    "SemanticQueryDataShapeCommand": {
+                        "Query": {
+                            "Version": 2,
+                            "From": [
+                                {"Name": "w", "Entity": "wms_pallet_position", "Type": 0},
+                                {"Name": "c", "Entity": "wms_movimientos_inventario", "Type": 0},
+                                {"Name": "p", "Entity": "PRODUCTO", "Type": 0},
+                                {"Name": "m", "Entity": "MEDIDAS", "Type": 0}
+                            ],
+                            "Select": [
+                                {"Column": {"Expression": {"SourceRef": {"Source": "w"}}, "Property": "TipoUbicacion"}, "Name": "wms_pallet_position.TipoUbicacion", "NativeReferenceName": "TIPO UBICACION"},
+                                {"Column": {"Expression": {"SourceRef": {"Source": "c"}}, "Property": "Producto"}, "Name": "wms_movimientos_inventario.Producto", "NativeReferenceName": "PRODUCTO"},
+                                {"Column": {"Expression": {"SourceRef": {"Source": "p"}}, "Property": "GLOSA"}, "Name": "PRODUCTO.GLOSA", "NativeReferenceName": "DESCRIPCION PRODUCTO"},
+                                {"Column": {"Expression": {"SourceRef": {"Source": "w"}}, "Property": "CodigoCompuesto"}, "Name": "wms_pallet_position.CodigoCompuesto", "NativeReferenceName": "CodigoCompuesto"},
+                                {"Measure": {"Expression": {"SourceRef": {"Source": "m"}}, "Property": "SALDO ACTUAL"}, "Name": "MEDIDAS.SALDO ACTUAL", "NativeReferenceName": "SALDO ACTUAL"},
+                                {"Measure": {"Expression": {"SourceRef": {"Source": "m"}}, "Property": "FECHA ULTIMO MOVIMIENTO"}, "Name": "MEDIDAS.FECHA ULTIMO MOVIMIENTO", "NativeReferenceName": "FECHA ULTIMO MOVIMIENTO"}
+                            ],
+                            "OrderBy": [{"Direction": 2, "Expression": {"Measure": {"Expression": {"SourceRef": {"Source": "m"}}, "Property": "FECHA ULTIMO MOVIMIENTO"}}}]
+                        },
+                        "Binding": {
+                            "Primary": {"Groupings": [{"Projections": [0, 1, 2, 3, 4, 5], "Subtotal": 1}]},
+                            "DataReduction": {"DataVolume": 3, "Primary": {"Window": {"Count": 500}}},
+                            "Version": 1
+                        },
+                        "ExecutionMetricsKind": 1
+                    }
+                }]
+            },
+            "QueryId": "",
+            "ApplicationContext": {
+                "DatasetId": "",
+                "Sources": [{"ReportId": "", "VisualId": ""}]
+            }
+        }],
+        "cancelQueries": [],
+        "modelId": 6068825
+    }
 
-        try:
-            data_resp = await client.post(api_url, json=payload, headers={
-                **headers,
-                "Content-Type": "application/json",
-                "X-PowerBI-ResourceKey": token
-            })
-            
-            if data_resp.status_code == 200:
-                data = data_resp.json()
-                filas = _extraer_filas(data)
-                if filas:
-                    df = pd.DataFrame(filas)
-                    return _guardar_excel_pbi(df, reporte_nombre)
-        except Exception as e:
-            print(f"Error API: {e}")
-    
-    return None
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(api_url, json=payload, headers=headers)
+            print(f"Status: {resp.status_code}")
+            print(f"Response: {resp.text[:500]}")
+
+            if resp.status_code != 200:
+                return None
+
+            data = resp.json()
+            filas = _extraer_filas(data)
+            print(f"Filas extraídas: {len(filas)}")
+
+            if not filas:
+                return None
+
+            df = pd.DataFrame(filas)
+            return _guardar_excel_pbi(df, reporte_nombre)
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
 
 
 def _extraer_filas(dato: dict) -> list:
     filas = []
     try:
-        if "results" in dato:
-            for result in dato["results"]:
-                tablas = result.get("result", {}).get("data", {}).get("dsr", {}).get("DS", [])
-                for tabla in tablas:
-                    for ph in tabla.get("PH", []):
-                        for dm in ph.get("DM0", []):
-                            fila = {k: v for k, v in dm.items() if k != "R"}
-                            if fila:
-                                filas.append(fila)
-        elif "tables" in dato:
-            for tabla in dato["tables"]:
-                filas.extend(tabla.get("rows", []))
-    except Exception:
-        pass
+        resultados = dato.get("results", [])
+        for result in resultados:
+            ds = result.get("result", {}).get("data", {}).get("dsr", {}).get("DS", [])
+            for tabla in ds:
+                columnas = [v.get("N", f"col{i}") for i, v in enumerate(tabla.get("ValueDicts", {}).values())]
+                for ph in tabla.get("PH", []):
+                    for dm in ph.get("DM0", []):
+                        fila = {}
+                        valores = dm.get("C", [])
+                        for i, val in enumerate(valores):
+                            nombre = columnas[i] if i < len(columnas) else f"col{i}"
+                            fila[nombre] = val
+                        if fila:
+                            filas.append(fila)
+    except Exception as e:
+        print(f"Error extrayendo filas: {e}")
     return filas
 
 
