@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import os
 
-from .extractor_pbi import extraer_pbi_sync
+from .extractor_pbi import extraer_datos_pbi
 
 router_pbi = APIRouter()
 
@@ -19,7 +19,7 @@ async def exportar_reporte_pbi(data: ReporteRequest):
         raise HTTPException(status_code=400, detail="URL de reporte inválida")
 
     try:
-        ruta_excel = extraer_pbi_sync(data.url, data.nombre)
+        ruta_excel = await extraer_datos_pbi(data.url, data.nombre)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al extraer datos: {str(e)}")
 
