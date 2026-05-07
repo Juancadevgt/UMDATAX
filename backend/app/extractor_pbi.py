@@ -8,24 +8,32 @@ async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
     datos_capturados = []
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--no-zygote",
+                "--single-process",
+            ]
+        )
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
 
-        # Interceptar ANTES de navegar
         async def capturar_respuesta(response):
             try:
                 if "querydata" in response.url and response.status == 200:
-                    print(f"Capturando: {response.url}")
-                    text = await response.text()
-                    print(f"Respuesta (primeros 200 chars): {text[:200]}")
+                    print(f"✅ Capturando: {response.url}")
                     import json
+                    text = await response.text()
                     body = json.loads(text)
                     datos_capturados.append(body)
             except Exception as e:
-                print(f"Error capturando respuesta: {e}")
+                print(f"Error capturando: {e}")
 
         page.on("response", capturar_respuesta)
 
@@ -36,7 +44,7 @@ async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
             await page.wait_for_timeout(15000)
             print(f"Datos capturados: {len(datos_capturados)}")
         except Exception as e:
-            print(f"Error navegando: {e}")
+            print(f"Error: {e}")
         finally:
             await browser.close()
 
