@@ -2,16 +2,11 @@ import httpx
 import pandas as pd
 from datetime import datetime
 import os
-import re
 
 
 async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
-    match = re.search(r'[?&]r=([^&]+)', url)
-    if not match:
-        return None
-
-    token = match.group(1)
-    print(f"Token: {token}")
+    # El ResourceKey real del reporte (capturado del browser)
+    resource_key = "13ca6812-f215-4bd6-90c7-85a8acfd6a2c"
 
     api_url = "https://wabi-paas-1-scus-api.analysis.windows.net/public/reports/querydata?synchronous=true"
 
@@ -21,9 +16,7 @@ async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
         "Origin": "https://app.fabric.microsoft.com",
         "Referer": "https://app.fabric.microsoft.com/",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36",
-        "X-PowerBI-ResourceKey": token,
-        "ActivityId": "00000000-0000-0000-0000-000000000001",
-        "RequestId": "00000000-0000-0000-0000-000000000002",
+        "X-PowerBI-ResourceKey": resource_key,
     }
 
     payload = {
@@ -67,10 +60,10 @@ async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
 
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            print(f"Llamando API: {api_url}")
+            print(f"Llamando API con ResourceKey: {resource_key}")
             resp = await client.post(api_url, json=payload, headers=headers)
             print(f"Status: {resp.status_code}")
-            print(f"Response preview: {resp.text[:300]}")
+            print(f"Response: {resp.text[:300]}")
 
             if resp.status_code != 200:
                 return None
@@ -86,7 +79,7 @@ async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
             return _guardar_excel_pbi(df, reporte_nombre)
 
     except Exception as e:
-        print(f"Error httpx: {e}")
+        print(f"Error: {e}")
         return None
 
 
