@@ -5,7 +5,6 @@ import os
 
 
 async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
-    # El ResourceKey real del reporte (capturado del browser)
     resource_key = "13ca6812-f215-4bd6-90c7-85a8acfd6a2c"
 
     api_url = "https://wabi-paas-1-scus-api.analysis.windows.net/public/reports/querydata?synchronous=true"
@@ -87,13 +86,39 @@ def _extraer_filas(dato: dict) -> list:
     filas = []
     try:
         for result in dato.get("results", []):
-            ds = result.get("result", {}).get("data", {}).get("dsr", {}).get("DS", [])
-            for tabla in ds:
-                for ph in tabla.get("PH", []):
+            data = result.get("result", {}).get("data", {})
+            dsr = data.get("dsr", {})
+            descriptor = data.get("descriptor", {})
+
+            # Obtener nombres de columnas del descriptor
+            columnas = []
+            for sel in descriptor.get("Select", []):
+                nombre = sel.get("Value", f"col{len(columnas)}")
+                columnas.append(nombre)
+
+            print(f"Columnas encontradas: {columnas}")
+
+            for ds in dsr.get("DS", []):
+                value_dicts = ds.get("ValueDicts", {})
+
+                for ph in ds.get("PH", []):
+                    prev_fila = {}
                     for dm in ph.get("DM0", []):
-                        fila = {k: v for k, v in dm.items() if k != "R"}
+                        fila = dict(prev_fila)
+
+                        valores = dm.get("C", [])
+                        for i, val in enumerate(valores):
+                            col_name = columnas[i] if i < len(columnas) else f"col{i}"
+                            dict_key = f"D{i}"
+                            if dict_key in value_dicts and isinstance(val, int):
+                                fila[col_name] = value_dicts[dict_key][val]
+                            else:
+                                fila[col_name] = val
+
                         if fila:
                             filas.append(fila)
+                            prev_fila = fila
+
     except Exception as e:
         print(f"Error filas: {e}")
     return filas
