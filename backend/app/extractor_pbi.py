@@ -1,4 +1,3 @@
-import asyncio
 import pandas as pd
 from datetime import datetime
 from playwright.async_api import async_playwright
@@ -10,24 +9,32 @@ async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36"
+        )
         page = await context.new_page()
 
+        # Interceptar ANTES de navegar
         async def capturar_respuesta(response):
             try:
-                if "querydata" in response.url:
-                    content_type = response.headers.get("content-type", "")
-                    if "json" in content_type or "text" in content_type:
-                        body = await response.json()
-                        datos_capturados.append(body)
-            except Exception:
-                pass
+                if "querydata" in response.url and response.status == 200:
+                    print(f"Capturando: {response.url}")
+                    text = await response.text()
+                    print(f"Respuesta (primeros 200 chars): {text[:200]}")
+                    import json
+                    body = json.loads(text)
+                    datos_capturados.append(body)
+            except Exception as e:
+                print(f"Error capturando respuesta: {e}")
 
         page.on("response", capturar_respuesta)
 
         try:
-            await page.goto(url, wait_until="networkidle", timeout=60000)
-            await page.wait_for_timeout(8000)
+            print(f"Navegando a: {url}")
+            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            print("DOM cargado, esperando datos...")
+            await page.wait_for_timeout(15000)
+            print(f"Datos capturados: {len(datos_capturados)}")
         except Exception as e:
             print(f"Error navegando: {e}")
         finally:
@@ -37,7 +44,7 @@ async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
     for dato in datos_capturados:
         filas.extend(_extraer_filas(dato))
 
-    print(f"Total filas capturadas: {len(filas)}")
+    print(f"Total filas: {len(filas)}")
 
     if not filas:
         return None
