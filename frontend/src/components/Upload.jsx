@@ -8,7 +8,7 @@ const CAMPOS = [
   "Departamento", "Pais", "Frases"
 ];
 
-export default function Upload() {
+export default function Upload({ onVolver }) {
   const [file, setFile] = useState(null);
   const [tipo, setTipo] = useState("ZIP");
   const [campos, setCampos] = useState(CAMPOS);
@@ -27,24 +27,17 @@ export default function Upload() {
 
   const handleSubmit = async () => {
     if (!file) return alert("Selecciona archivo");
-
     try {
       const blob = await procesarArchivo(file, tipo, campos);
-
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-
       a.href = url;
       a.download = "procesado.xlsx";
-
       document.body.appendChild(a);
       a.click();
-
       a.remove();
       window.URL.revokeObjectURL(url);
-
       alert("Archivo descargado correctamente");
-
     } catch (error) {
       console.error(error);
       alert("Error al procesar archivo");
@@ -60,30 +53,27 @@ export default function Upload() {
       padding: 20
     }}>
 
-      {/* CONTENIDO PRINCIPAL */}
+      <div style={{ marginBottom: 10 }}>
+        <button onClick={onVolver}>← Volver</button>
+      </div>
+
       <div>
         <div style={{
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 10,
-  marginBottom: 10
-}}>
-  <img
-    src="/logo2.png"
-    alt="logo2"
-    style={{
-      width: 35,
-      height: 35,
-      objectFit: "contain"
-    }}
-  />
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          marginBottom: 10
+        }}>
+          <img
+            src="/logo2.png"
+            alt="logo2"
+            style={{ width: 35, height: 35, objectFit: "contain" }}
+          />
+          <h2 style={{ margin: 0 }}>UMDATAX</h2>
+        </div>
 
-  <h2 style={{ margin: 0 }}>
-    UMDATAX
-  </h2>
-</div>
-         <h4 style={{ textAlign: "center" }}>Extractor de Datos</h4>
+        <h4 style={{ textAlign: "center" }}>Extractor de Datos</h4>
 
         <div style={{ textAlign: "center" }}>
           <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
@@ -101,11 +91,11 @@ export default function Upload() {
 
           <br /><br />
 
-        <div style={{ textAlign: "center", marginTop: 10 }}>
-  <button onClick={() => setVisible(!visible)}>
-    {visible ? "Ocultar campos ▲" : "Seleccionar campos ▼"}
-  </button>
-</div>
+          <div style={{ textAlign: "center", marginTop: 10 }}>
+            <button onClick={() => setVisible(!visible)}>
+              {visible ? "Ocultar campos ▲" : "Seleccionar campos ▼"}
+            </button>
+          </div>
 
           {visible && (
             <div style={{
@@ -119,29 +109,18 @@ export default function Upload() {
               textAlign: "left"
             }}>
               <div style={{ marginBottom: 10 }}>
-                <button onClick={seleccionarTodos}>
-                  Seleccionar todos
-                </button>
-
-                <button
-                  onClick={quitarTodos}
-                  style={{ marginLeft: 10 }}
-                >
+                <button onClick={seleccionarTodos}>Seleccionar todos</button>
+                <button onClick={quitarTodos} style={{ marginLeft: 10 }}>
                   Quitar selección
                 </button>
               </div>
-
               {CAMPOS.map((campo) => (
                 <label key={campo} style={{ display: "block" }}>
                   <input
                     type="checkbox"
                     checked={campos.includes(campo)}
                     onChange={() => toggleCampo(campo)}
-                    style={{
-                      accentColor: "white",
-                      cursor: "pointer",
-                      marginRight: 5
-                    }}
+                    style={{ accentColor: "white", cursor: "pointer", marginRight: 5 }}
                   />
                   {campo}
                 </label>
@@ -166,7 +145,6 @@ export default function Upload() {
         </div>
       </div>
 
-      {/* FOOTER PROFESIONAL */}
       <footer style={{
         marginTop: 40,
         paddingTop: 15,
@@ -175,10 +153,7 @@ export default function Upload() {
         fontSize: "12px",
         color: "#aaa"
       }}>
-        <div style={{ marginBottom: 5 }}>
-          Versión 1.0.0
-        </div>
-
+        <div style={{ marginBottom: 5 }}>Versión 1.0.0</div>
         <div>
           Para agregar nuevos campos o tipos de archivos,
           contactar al correo de soporte: juan.jimenez@umbralcorp.com
