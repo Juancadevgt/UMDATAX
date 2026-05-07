@@ -1,95 +1,49 @@
-import httpx
+import asyncio
 import pandas as pd
 from datetime import datetime
+from playwright.async_api import async_playwright
 import os
-import re
 
 
 async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
-    match = re.search(r'[?&]r=([^&]+)', url)
-    if not match:
+    datos_capturados = []
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        async def capturar_respuesta(response):
+            try:
+                if "querydata" in response.url:
+                    content_type = response.headers.get("content-type", "")
+                    if "json" in content_type or "text" in content_type:
+                        body = await response.json()
+                        datos_capturados.append(body)
+            except Exception:
+                pass
+
+        page.on("response", capturar_respuesta)
+
+        try:
+            await page.goto(url, wait_until="networkidle", timeout=60000)
+            await page.wait_for_timeout(8000)
+        except Exception as e:
+            print(f"Error navegando: {e}")
+        finally:
+            await browser.close()
+
+    filas = []
+    for dato in datos_capturados:
+        filas.extend(_extraer_filas(dato))
+
+    print(f"Total filas capturadas: {len(filas)}")
+
+    if not filas:
         return None
 
-    token = match.group(1)
-
-    # URL real de la API de Power BI
-    api_url = "https://wabi-paas-1-scus-api.analysis.windows.net/public/reports/querydata?synchronous=true"
-
-    headers = {
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json;charset=UTF-8",
-        "Origin": "https://app.fabric.microsoft.com",
-        "Referer": "https://app.fabric.microsoft.com/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36",
-        "X-PowerBI-ResourceKey": token,
-    }
-
-    # Payload para obtener TODOS los datos sin filtro
-    payload = {
-        "version": "1.0.0",
-        "queries": [{
-            "Query": {
-                "Commands": [{
-                    "SemanticQueryDataShapeCommand": {
-                        "Query": {
-                            "Version": 2,
-                            "From": [
-                                {"Name": "w", "Entity": "wms_pallet_position", "Type": 0},
-                                {"Name": "c", "Entity": "wms_movimientos_inventario", "Type": 0},
-                                {"Name": "p", "Entity": "PRODUCTO", "Type": 0},
-                                {"Name": "m", "Entity": "MEDIDAS", "Type": 0}
-                            ],
-                            "Select": [
-                                {"Column": {"Expression": {"SourceRef": {"Source": "w"}}, "Property": "TipoUbicacion"}, "Name": "wms_pallet_position.TipoUbicacion", "NativeReferenceName": "TIPO UBICACION"},
-                                {"Column": {"Expression": {"SourceRef": {"Source": "c"}}, "Property": "Producto"}, "Name": "wms_movimientos_inventario.Producto", "NativeReferenceName": "PRODUCTO"},
-                                {"Column": {"Expression": {"SourceRef": {"Source": "p"}}, "Property": "GLOSA"}, "Name": "PRODUCTO.GLOSA", "NativeReferenceName": "DESCRIPCION PRODUCTO"},
-                                {"Column": {"Expression": {"SourceRef": {"Source": "w"}}, "Property": "CodigoCompuesto"}, "Name": "wms_pallet_position.CodigoCompuesto", "NativeReferenceName": "CodigoCompuesto"},
-                                {"Measure": {"Expression": {"SourceRef": {"Source": "m"}}, "Property": "SALDO ACTUAL"}, "Name": "MEDIDAS.SALDO ACTUAL", "NativeReferenceName": "SALDO ACTUAL"},
-                                {"Measure": {"Expression": {"SourceRef": {"Source": "m"}}, "Property": "FECHA ULTIMO MOVIMIENTO"}, "Name": "MEDIDAS.FECHA ULTIMO MOVIMIENTO", "NativeReferenceName": "FECHA ULTIMO MOVIMIENTO"}
-                            ],
-                            "OrderBy": [{"Direction": 2, "Expression": {"Measure": {"Expression": {"SourceRef": {"Source": "m"}}, "Property": "FECHA ULTIMO MOVIMIENTO"}}}]
-                        },
-                        "Binding": {
-                            "Primary": {"Groupings": [{"Projections": [0, 1, 2, 3, 4, 5], "Subtotal": 1}]},
-                            "DataReduction": {"DataVolume": 3, "Primary": {"Window": {"Count": 500}}},
-                            "Version": 1
-                        },
-                        "ExecutionMetricsKind": 1
-                    }
-                }]
-            },
-            "QueryId": "",
-            "ApplicationContext": {
-                "DatasetId": "",
-                "Sources": [{"ReportId": "", "VisualId": ""}]
-            }
-        }],
-        "cancelQueries": [],
-        "modelId": 6068825
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(api_url, json=payload, headers=headers)
-            print(f"Status: {resp.status_code}")
-            print(f"Response: {resp.text[:500]}")
-
-            if resp.status_code != 200:
-                return None
-
-            data = resp.json()
-            filas = _extraer_filas(data)
-            print(f"Filas extraídas: {len(filas)}")
-
-            if not filas:
-                return None
-
-            df = pd.DataFrame(filas)
-            return _guardar_excel_pbi(df, reporte_nombre)
-
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
+    df = pd.DataFrame(filas)
+    return _guardar_excel_pbi(df, reporte_nombre)
 
 
 def _extraer_filas(dato: dict) -> list:
@@ -99,14 +53,9 @@ def _extraer_filas(dato: dict) -> list:
         for result in resultados:
             ds = result.get("result", {}).get("data", {}).get("dsr", {}).get("DS", [])
             for tabla in ds:
-                columnas = [v.get("N", f"col{i}") for i, v in enumerate(tabla.get("ValueDicts", {}).values())]
                 for ph in tabla.get("PH", []):
                     for dm in ph.get("DM0", []):
-                        fila = {}
-                        valores = dm.get("C", [])
-                        for i, val in enumerate(valores):
-                            nombre = columnas[i] if i < len(columnas) else f"col{i}"
-                            fila[nombre] = val
+                        fila = {k: v for k, v in dm.items() if k != "R"}
                         if fila:
                             filas.append(fila)
     except Exception as e:
