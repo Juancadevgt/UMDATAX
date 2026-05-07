@@ -3,4 +3,4 @@ uvicorn
 pandas
 openpyxl
 python-multipart
-playwright
+httpx

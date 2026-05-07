@@ -1,49 +1,76 @@
-import asyncio
+import httpx
 import pandas as pd
 from datetime import datetime
-from playwright.async_api import async_playwright
 import os
+import re
 
 
-async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte") -> str:
-    datos_capturados = []
+async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
+    # Extraer el token r= de la URL
+    match = re.search(r'[?&]r=([^&]+)', url)
+    if not match:
+        return None
+    
+    token = match.group(1)
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
+        "Origin": "https://app.fabric.microsoft.com",
+        "Referer": url,
+    }
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
-        page = await context.new_page()
-
-        async def capturar_respuesta(response):
-            try:
-                if any(k in response.url for k in ["querydata", "executeQueries", "models", "datasetExecuteQueries"]):
-                    content_type = response.headers.get("content-type", "")
-                    if "json" in content_type:
-                        body = await response.json()
-                        datos_capturados.append(body)
-            except Exception:
-                pass
-
-        page.on("response", capturar_respuesta)
+    async with httpx.AsyncClient(timeout=30) as client:
+        # 1. Obtener metadata del reporte
+        meta_url = f"https://app.fabric.microsoft.com/view?r={token}"
+        resp = await client.get(meta_url, headers=headers)
+        
+        # 2. Buscar el embed URL real en el HTML
+        embed_match = re.search(r'"embedUrl":"([^"]+)"', resp.text)
+        config_match = re.search(r'"reportId":"([^"]+)"', resp.text)
+        
+        if not embed_match:
+            return None
+            
+        embed_url = embed_match.group(1).replace("\\u0026", "&")
+        
+        # 3. Obtener los datos del reporte via API interna
+        api_url = f"https://wabi-west-europe-b-primary-redirect.analysis.windows.net/public/reports/querydata"
+        
+        payload = {
+            "version": "1.0.0",
+            "queries": [{
+                "Query": {
+                    "Commands": [{
+                        "SemanticQueryDataShapeCommand": {
+                            "Query": {
+                                "Version": 2,
+                                "From": [{"Name": "t", "Entity": "Table", "Type": 0}],
+                                "Select": [{"Column": {"Expression": {"SourceRef": {"Source": "t"}}, "Property": "*"}, "Name": "t.*"}]
+                            }
+                        }
+                    }]
+                }
+            }]
+        }
 
         try:
-            await page.goto(url, wait_until="networkidle", timeout=60000)
-            await page.wait_for_timeout(5000)
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(2000)
+            data_resp = await client.post(api_url, json=payload, headers={
+                **headers,
+                "Content-Type": "application/json",
+                "X-PowerBI-ResourceKey": token
+            })
+            
+            if data_resp.status_code == 200:
+                data = data_resp.json()
+                filas = _extraer_filas(data)
+                if filas:
+                    df = pd.DataFrame(filas)
+                    return _guardar_excel_pbi(df, reporte_nombre)
         except Exception as e:
-            print(f"Error navegando: {e}")
-        finally:
-            await browser.close()
-
-    filas = []
-    for dato in datos_capturados:
-        filas.extend(_extraer_filas(dato))
-
-    if not filas:
-        return None
-
-    df = pd.DataFrame(filas)
-    return _guardar_excel_pbi(df, reporte_nombre)
+            print(f"Error API: {e}")
+    
+    return None
 
 
 def _extraer_filas(dato: dict) -> list:
@@ -75,7 +102,3 @@ def _guardar_excel_pbi(df: pd.DataFrame, nombre: str) -> str:
     ruta = os.path.join(carpeta, nombre_archivo)
     df.to_excel(ruta, index=False)
     return ruta
-
-
-def extraer_pbi_sync(url: str, reporte_nombre: str = "reporte") -> str:
-    return asyncio.run(extraer_datos_pbi(url, reporte_nombre))
