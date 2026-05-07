@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Upload from "./components/Upload";
+import Reportes from "./components/Reportes";
 
 export default function App() {
   const [modulo, setModulo] = useState(null);
@@ -9,21 +10,7 @@ export default function App() {
   }
 
   if (modulo === "pbi") {
-    return (
-      <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20
-      }}>
-        <p style={{ color: "#aaa", marginBottom: 20 }}>
-          Módulo Power BI — próximamente
-        </p>
-        <button onClick={() => setModulo(null)}>← Volver</button>
-      </div>
-    );
+    return <Reportes onVolver={() => setModulo(null)} />;
   }
 
   return (
