@@ -6,7 +6,6 @@ import os
 
 async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
     resource_key = "13ca6812-f215-4bd6-90c7-85a8acfd6a2c"
-
     api_url = "https://wabi-paas-1-scus-api.analysis.windows.net/public/reports/querydata?synchronous=true"
 
     headers = {
@@ -59,17 +58,15 @@ async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
 
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            print(f"Llamando API con ResourceKey: {resource_key}")
             resp = await client.post(api_url, json=payload, headers=headers)
             print(f"Status: {resp.status_code}")
-            print(f"Response: {resp.text[:3000]}")
 
             if resp.status_code != 200:
                 return None
 
             data = resp.json()
             filas = _extraer_filas(data)
-            print(f"Filas: {len(filas)}")
+            print(f"Filas extraidas: {len(filas)}")
 
             if not filas:
                 return None
@@ -90,36 +87,72 @@ def _extraer_filas(dato: dict) -> list:
             dsr = data.get("dsr", {})
             descriptor = data.get("descriptor", {})
 
-            columnas = []
+            # Nombres reales de columnas desde descriptor
+            col_names = []
             for sel in descriptor.get("Select", []):
-                nombre = sel.get("Value", f"col{len(columnas)}")
-                columnas.append(nombre)
+                col_names.append(sel.get("Name", sel.get("Value", f"col{len(col_names)}")))
 
-            print(f"Columnas encontradas: {columnas}")
+            print(f"Columnas: {col_names}")
 
             for ds in dsr.get("DS", []):
                 value_dicts = ds.get("ValueDicts", {})
 
                 for ph in ds.get("PH", []):
-                    prev_fila = {}
-                    for dm in ph.get("DM0", []):
-                        fila = dict(prev_fila)
+                    # DM1 tiene los datos reales (DM0 es el subtotal)
+                    dm_list = ph.get("DM1", ph.get("DM0", []))
+
+                    # Schema de la primera fila
+                    schema = []
+                    prev_valores = {}
+
+                    for dm in dm_list:
+                        # Actualizar schema si existe
+                        if "S" in dm:
+                            schema = dm["S"]
 
                         valores = dm.get("C", [])
-                        for i, val in enumerate(valores):
-                            col_name = columnas[i] if i < len(columnas) else f"col{i}"
-                            dict_key = f"D{i}"
-                            if dict_key in value_dicts and isinstance(val, int):
-                                fila[col_name] = value_dicts[dict_key][val]
-                            else:
-                                fila[col_name] = val
+                        r_flags = dm.get("R", 0)
 
-                        if fila:
-                            filas.append(fila)
-                            prev_fila = fila
+                        # Construir fila aplicando R flags (bits que indican valores repetidos)
+                        fila_actual = dict(prev_valores)
+
+                        col_idx = 0
+                        val_idx = 0
+
+                        for s_idx, s in enumerate(schema):
+                            col_key = s.get("N", f"col{s_idx}")
+
+                            # Verificar si este campo se repite del anterior (R flag)
+                            if r_flags & (1 << s_idx):
+                                # Mantener valor anterior
+                                pass
+                            else:
+                                if val_idx < len(valores):
+                                    val = valores[val_idx]
+                                    # Resolver diccionario si aplica
+                                    dn = s.get("DN", "")
+                                    if dn and dn in value_dicts and isinstance(val, int):
+                                        val = value_dicts[dn][val]
+                                    fila_actual[col_key] = val
+                                    val_idx += 1
+
+                        # Mapear claves internas a nombres reales
+                        fila_final = {}
+                        key_map = {s.get("N"): col_names[i] if i < len(col_names) else s.get("N")
+                                   for i, s in enumerate(schema)}
+
+                        for k, v in fila_actual.items():
+                            nombre_col = key_map.get(k, k)
+                            fila_final[nombre_col] = v
+
+                        if fila_final:
+                            filas.append(fila_final)
+                            prev_valores = fila_actual
 
     except Exception as e:
+        import traceback
         print(f"Error filas: {e}")
+        print(traceback.format_exc())
     return filas
 
 
