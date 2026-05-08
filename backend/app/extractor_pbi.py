@@ -4,65 +4,20 @@ from datetime import datetime
 import os
 
 
+POWER_AUTOMATE_URL = "https://defaultbbd2639526d1499fa8a1ea5f2f9165.69.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b90f312ce5964b72b6bf17b56d595068/triggers/manual/paths/invoke?api-version=1"
+
+
 async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
-    resource_key = "13ca6812-f215-4bd6-90c7-85a8acfd6a2c"
-
-    api_url = "https://wabi-paas-1-scus-api.analysis.windows.net/public/reports/querydata?synchronous=true"
-
-    headers = {
-        "Accept": "application/json, text/plain, */*",
-        "Content-Type": "application/json;charset=UTF-8",
-        "Origin": "https://app.fabric.microsoft.com",
-        "Referer": "https://app.fabric.microsoft.com/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36",
-        "X-PowerBI-ResourceKey": resource_key,
-    }
-
-    payload = {
-        "version": "1.0.0",
-        "queries": [{
-            "Query": {
-                "Commands": [{
-                    "SemanticQueryDataShapeCommand": {
-                        "Query": {
-                            "Version": 2,
-                            "From": [
-                                {"Name": "w", "Entity": "wms_pallet_position", "Type": 0},
-                                {"Name": "c", "Entity": "wms_movimientos_inventario", "Type": 0},
-                                {"Name": "p", "Entity": "PRODUCTO", "Type": 0},
-                                {"Name": "m", "Entity": "MEDIDAS", "Type": 0}
-                            ],
-                            "Select": [
-                                {"Column": {"Expression": {"SourceRef": {"Source": "w"}}, "Property": "TipoUbicacion"}, "Name": "wms_pallet_position.TipoUbicacion"},
-                                {"Column": {"Expression": {"SourceRef": {"Source": "c"}}, "Property": "Producto"}, "Name": "wms_movimientos_inventario.Producto"},
-                                {"Column": {"Expression": {"SourceRef": {"Source": "p"}}, "Property": "GLOSA"}, "Name": "PRODUCTO.GLOSA"},
-                                {"Column": {"Expression": {"SourceRef": {"Source": "w"}}, "Property": "CodigoCompuesto"}, "Name": "wms_pallet_position.CodigoCompuesto"},
-                                {"Measure": {"Expression": {"SourceRef": {"Source": "m"}}, "Property": "SALDO ACTUAL"}, "Name": "MEDIDAS.SALDO ACTUAL"},
-                                {"Measure": {"Expression": {"SourceRef": {"Source": "m"}}, "Property": "FECHA ULTIMO MOVIMIENTO"}, "Name": "MEDIDAS.FECHA ULTIMO MOVIMIENTO"}
-                            ]
-                        },
-                        "Binding": {
-                            "Primary": {"Groupings": [{"Projections": [0,1,2,3,4,5], "Subtotal": 1}]},
-                            "DataReduction": {"DataVolume": 3, "Primary": {"Window": {"Count": 500}}},
-                            "Version": 1
-                        },
-                        "ExecutionMetricsKind": 1
-                    }
-                }]
-            },
-            "QueryId": "",
-            "ApplicationContext": {"DatasetId": "", "Sources": [{"ReportId": "", "VisualId": ""}]}
-        }],
-        "cancelQueries": [],
-        "modelId": 6068825
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            print(f"Llamando API con ResourceKey: {resource_key}")
-            resp = await client.post(api_url, json=payload, headers=headers)
+        async with httpx.AsyncClient(timeout=60) as client:
+            print(f"Llamando Power Automate...")
+            resp = await client.post(
+                POWER_AUTOMATE_URL,
+                json={"reporte": reporte_nombre},
+                headers={"Content-Type": "application/json"}
+            )
             print(f"Status: {resp.status_code}")
-            print(f"Response: {resp.text[:300]}")
+            print(f"Response: {resp.text[:500]}")
 
             if resp.status_code != 200:
                 return None
@@ -85,40 +40,27 @@ async def extraer_datos_pbi(url: str, reporte_nombre: str = "reporte"):
 def _extraer_filas(dato: dict) -> list:
     filas = []
     try:
-        for result in dato.get("results", []):
-            data = result.get("result", {}).get("data", {})
-            dsr = data.get("dsr", {})
-            descriptor = data.get("descriptor", {})
+        # Power Automate devuelve los datos en "Results" o "value"
+        resultados = dato.get("Results", dato.get("results", dato.get("value", [])))
+        
+        if isinstance(resultados, list):
+            for fila in resultados:
+                if isinstance(fila, dict):
+                    filas.append(fila)
+        elif isinstance(resultados, dict):
+            tablas = resultados.get("Tables", resultados.get("tables", []))
+            for tabla in tablas:
+                rows = tabla.get("Rows", tabla.get("rows", []))
+                cols = tabla.get("Columns", tabla.get("columns", []))
+                col_names = [c.get("Name", f"col{i}") for i, c in enumerate(cols)]
+                for row in rows:
+                    if isinstance(row, list):
+                        fila = {col_names[i]: v for i, v in enumerate(row) if i < len(col_names)}
+                    else:
+                        fila = row
+                    filas.append(fila)
 
-            # Obtener nombres de columnas del descriptor
-            columnas = []
-            for sel in descriptor.get("Select", []):
-                nombre = sel.get("Value", f"col{len(columnas)}")
-                columnas.append(nombre)
-
-            print(f"Columnas encontradas: {columnas}")
-
-            for ds in dsr.get("DS", []):
-                value_dicts = ds.get("ValueDicts", {})
-
-                for ph in ds.get("PH", []):
-                    prev_fila = {}
-                    for dm in ph.get("DM0", []):
-                        fila = dict(prev_fila)
-
-                        valores = dm.get("C", [])
-                        for i, val in enumerate(valores):
-                            col_name = columnas[i] if i < len(columnas) else f"col{i}"
-                            dict_key = f"D{i}"
-                            if dict_key in value_dicts and isinstance(val, int):
-                                fila[col_name] = value_dicts[dict_key][val]
-                            else:
-                                fila[col_name] = val
-
-                        if fila:
-                            filas.append(fila)
-                            prev_fila = fila
-
+        print(f"Estructura dato: {list(dato.keys())}")
     except Exception as e:
         print(f"Error filas: {e}")
     return filas
