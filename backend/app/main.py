@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.routes import router
-from backend.app.routes_pbi import router_pbi
 
 app = FastAPI()
 
@@ -15,4 +14,3 @@ app.add_middleware(
 )
 
 app.include_router(router)
-app.include_router(router_pbi)
